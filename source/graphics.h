@@ -110,7 +110,7 @@ class Graphics {
 	void circ(int ox, int oy, int r, uint8_t col);
 	void circfill(int ox, int oy);
 	void circfill(int ox, int oy, int r);
-	void circfill(int ox, int oy, int r, uint8_t col);
+	void circfill(int ox, int oy, int r, int col);
 
 	void oval(int x0, int y0, int x1, int y1);
 	void oval(int x0, int y0, int x1, int y1, uint8_t col);

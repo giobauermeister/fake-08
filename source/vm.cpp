@@ -402,9 +402,7 @@ bool Vm::loadCart(Cart* cart) {
     }
 
     //move this to cart glue code?
-    if (_cartBreadcrumb.length() > 0) {
-        ExecuteLua("__addbreadcrumb(\"" + _cartBreadcrumb +"\", \"" + _prevCartKey +"\")", "");
-    }
+    // Breadcrumbs are installed by vm_run in the host Lua environment.
 
     // Only clear error if we successfully loaded a non-default cart
     // (preserve error when loading default cart to display it)
@@ -440,6 +438,11 @@ void Vm::LoadSettingsCart(){
 }
 
 bool Vm::LoadCart(std::string filename, bool loadBiosOnFail){
+    if (_cartBundle.empty() && !filename.empty() && filename[0] == '#' &&
+        !_initialCartFilename.empty()) {
+        string basename = _initialCartFilename.substr(_initialCartFilename.find_last_of('/') + 1);
+        if (cartBundleKey(filename) == cartBundleBaseKey(basename)) filename = _initialCartFilename;
+    }
     // if (filename == "__FAKE08-DEFAULT.p8") {
     //     LoadBiosCart();
     //     return;
@@ -464,7 +467,41 @@ bool Vm::LoadCart(std::string filename, bool loadBiosOnFail){
 
     Logger_Write("Calling Cart Constructor\n");
     auto cartDir = _host->getCartDirectory();
-    Cart *cart = new Cart(filename, cartDir);
+    Cart *cart = nullptr;
+    if (!_cartBundle.empty() && filename != DefaultCartName) {
+        for (const auto& entry : _cartBundle) {
+            if (cartBundleKey(filename) == cartBundleKey(entry.name)) {
+                cart = new Cart(entry.data, entry.size);
+                cart->FullCartPath = entry.name;
+                break;
+            }
+        }
+        if (!cart && !filename.empty() && filename[0] == '#') {
+            const CartBundleEntry* match = nullptr;
+            for (const auto& entry : _cartBundle) {
+                if (cartBundleKey(filename) == cartBundleBaseKey(entry.name)) {
+                    if (match) { match = nullptr; break; } // ambiguous revision
+                    match = &entry;
+                }
+            }
+            if (match) {
+                cart = new Cart(match->data, match->size);
+                cart->FullCartPath = match->name;
+            }
+        }
+        if (!cart) {
+            _cartLoadError = "Cart not in bundle: " + filename;
+            return false;
+        }
+    } else {
+        cart = new Cart(filename, cartDir);
+        // Raw SD layouts keep dependencies out of the menu in carts/.
+        if (!cart->LoadError.empty() && !isAbsolutePath(filename) &&
+            filename != DefaultCartName && !cartDir.empty()) {
+            delete cart;
+            cart = new Cart(filename, cartDir + "/carts");
+        }
+    }
     Logger_Write("Cart Constructor called\n");
 
     _cartLoadError = cart->LoadError;
@@ -476,7 +513,7 @@ bool Vm::LoadCart(std::string filename, bool loadBiosOnFail){
         _cartLoadError = cart->LoadError;
         delete cart;
         // Load default cart to display error
-        LoadBiosCart();
+        if (loadBiosOnFail && !_externalFrontend) LoadBiosCart();
         return false;
     }
 
@@ -488,7 +525,7 @@ bool Vm::LoadCart(std::string filename, bool loadBiosOnFail){
         if (_cartLoadError.length() == 0) {
             _cartLoadError = "Cart file has no Lua code";
         }
-        LoadBiosCart();
+        if (loadBiosOnFail && !_externalFrontend) LoadBiosCart();
     }
 
     return success;
@@ -499,12 +536,30 @@ bool Vm::LoadCart(const unsigned char* cartData, size_t size, bool loadBiosOnFai
     CloseCart();
 
     Logger_Write("Calling Cart Constructor\n");
+    _cartBundle.clear();
+    _initialCartFilename.clear();
+    _exitRequested = false;
+    string filename;
+    if (isCartBundle(cartData, size)) {
+        if (!parseCartBundle(cartData, size, _cartBundle)) {
+            _cartLoadError = "Invalid PICO-8 cart bundle";
+            return false;
+        }
+        const auto& first = _cartBundle.front();
+        cartData = first.data;
+        size = first.size;
+        filename = first.name;
+    }
     Cart *cart = new Cart(cartData, size);
+    cart->FullCartPath = filename;
 
     _cartLoadError = cart->LoadError;
 
     bool success = loadCart(cart);
 
+    if (!success) {
+        delete cart;
+    }
     if (loadBiosOnFail && !success) {
         CloseCart();
         //todo: show an error message on the bios?
@@ -635,6 +690,7 @@ void Vm::deserializeCartDataToMemory(std::string cartDataStr) {
 }
 
 bool Vm::Step(){
+    if (_exitRequested) return false;
     _picoFrameCount++;
     bool ret = false;
     lua_getglobal(_luaState, "__z8_tick");
@@ -643,7 +699,7 @@ bool Vm::Step(){
     {
         char const *message = lua_tostring(_luaState, -1);
         Logger_Write("error calling tick function: %s\n", message);
-        _cartLoadError = "Error in main loop: " + std::string(message);
+        _cartLoadError = "Error in main loop: " + std::string(message ? message : "Unknown Lua error");
         lua_pop(_luaState, 1);
         // Return to menu on error
         QueueCartChange(DefaultCartName);
@@ -655,8 +711,9 @@ bool Vm::Step(){
         ret = tickResult >= 0;
         // If __z8_tick returned -1, it means there was an error (already handled in Lua)
         // but we should ensure error message is set if it's not already
-        if (tickResult == -1 && _cartLoadError.empty()) {
-            _cartLoadError = "Error in cart execution";
+        if (tickResult == -1) {
+            if (_cartLoadError.empty()) _cartLoadError = "Error in cart execution";
+            if (_externalFrontend) _exitRequested = true;
         }
     }
     lua_pop(_luaState, 1);
@@ -681,6 +738,7 @@ bool Vm::Step(){
             Logger_Write("Cart load failed, not running vm_run()\n");
             // Clear cart change queue to prevent infinite retry loop
             _cartChangeQueued = false;
+            if (_externalFrontend) _exitRequested = true;
         }
     }
 
@@ -793,6 +851,11 @@ void Vm::CloseCart() {
 }
 
 void Vm::QueueCartChange(std::string filename){
+    if (_externalFrontend && filename == DefaultCartName) {
+        _exitRequested = true;
+        _cartChangeQueued = false;
+        return;
+    }
     _nextCartKey = filename;
     _nextCartData = nullptr;
     _nextCartSize = 0;
@@ -1350,14 +1413,29 @@ void Vm::vm_run() {
         _input->SetState(0, 0);
     }
 
-    lua_getglobal(_luaState, "__z8_run_cart");
-    lua_pushstring(_luaState, _loadedCart->LuaString.c_str());
+    lua_pushcfunction(_luaState, [](lua_State* L) -> int {
+        Vm* vm = static_cast<Vm*>(lua_touserdata(L, 1));
+        lua_getglobal(L, "__z8_release_cart");
+        lua_call(L, 0, 0);
+        lua_gc(L, LUA_GCCOLLECT, 0);
+        if (!vm->_cartBreadcrumb.empty()) {
+            lua_getglobal(L, "__addbreadcrumb");
+            lua_pushlstring(L, vm->_cartBreadcrumb.data(), vm->_cartBreadcrumb.size());
+            lua_pushlstring(L, vm->_prevCartKey.data(), vm->_prevCartKey.size());
+            lua_call(L, 2, 0);
+        }
+        lua_getglobal(L, "__z8_run_cart");
+        lua_pushlstring(L, vm->_loadedCart->LuaString.data(), vm->_loadedCart->LuaString.size());
+        lua_call(L, 1, 0);
+        return 0;
+    });
+    lua_pushlightuserdata(_luaState, this);
     int status = lua_pcall(_luaState, 1, 0, 0);
     if (status != LUA_OK)
     {
         char const *message = lua_tostring(_luaState, -1);
         Logger_Write("error in vm_run: %s\n", message);
-        _cartLoadError = "Error loading cart: " + std::string(message);
+        _cartLoadError = "Error loading cart: " + std::string(message ? message : "Unknown Lua error");
         lua_pop(_luaState, 1);
         // Return to menu on error
         QueueCartChange(DefaultCartName);
@@ -1392,15 +1470,8 @@ bool Vm::vm_load(std::string filename, std::string breadcrumb, std::string param
     
     _prevCartKey = CurrentCartFilename();
     
-    bool success = LoadCart(filename);
-    
-    // Only run if cart loaded successfully
-    if (success) {
-        vm_run();
-        return true;
-    } else {
-        return false;
-    }
+    QueueCartChange(filename);
+    return true;
 }
 
 void Vm::vm_reset(){

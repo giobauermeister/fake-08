@@ -1195,9 +1195,10 @@ void Graphics::_invertedCircfill(int ox, int oy, int r, uint8_t col){
 	}
 }
 
-void Graphics::circfill(int ox, int oy, int r, uint8_t col){
-	// Check if inverted fill mode is enabled (bit 1 of colorSettingFlag at 0x5f34)
-	bool invertedFill = (_memory->drawState.colorSettingFlag & 0x02) != 0;
+void Graphics::circfill(int ox, int oy, int r, int col){
+	// 0x5f34 permits inversion; the colour argument selects it per call.
+	bool invertedFill = (_memory->drawState.colorSettingFlag & 0x02) != 0
+	    && (col & 0x1800) == 0x1800;
 
 	if (invertedFill) {
 		return _invertedCircfill(ox, oy, r, col);

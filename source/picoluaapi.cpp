@@ -234,7 +234,7 @@ int circfill(lua_State *L){
 void pico8_fast_circfill(lua_Number x, lua_Number y, lua_Number radius,
                          lua_Number color) {
     _graphicsForLuaApi->circfill((int)x, (int)y, (int)radius,
-                                 (uint8_t)(int)color);
+                                 (int)color);
 }
 
 void pico8_fast_circfill(lua_Number x, lua_Number y) {
@@ -1185,17 +1185,19 @@ int peek(lua_State *L) {
 
     if (numArgs > 1) {
         int tmpNumToReturn = lua_tonumber(L,2);
-        //pico 8 docs say up to 8192 - clamp to this limit
+        // Released multi-carts read larger blocks (Into Ruins uses 10019).
+        // Bound the result count to the positive fixed-point integer range.
         if (tmpNumToReturn > 0) {
-            numToReturn = tmpNumToReturn > 8192 ? 8192 : tmpNumToReturn;
+            numToReturn = tmpNumToReturn > 32767 ? 32767 : tmpNumToReturn;
         }
     }
 
     // Ensure Lua stack has enough space for the values we're about to push
-    lua_checkstack(L, numToReturn);
+    if (!lua_checkstack(L, numToReturn))
+        return luaL_error(L, "not enough memory for peek results");
 
     for(int i = 0; i < numToReturn; i++) {
-        uint8_t val = _vmForLuaApi->vm_peek(addr + i);
+        uint8_t val = _vmForLuaApi->vm_peek((uint16_t)(addr + i));
 
         lua_pushinteger(L, val);
     }

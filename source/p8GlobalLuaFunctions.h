@@ -415,6 +415,10 @@ function load(arg, arg2, arg3)
     local success, msg
 
     success, msg = __load(arg, arg2, arg3), ""
+    if success then
+        -- The host replaces this coroutine after the tick returns.
+        yield()
+    end
 
     return success
 
@@ -540,6 +544,13 @@ end
 
 function __z8_reset_cartdata()
     __cartdata(nil)
+end
+
+function __z8_release_cart()
+    __z8_loop, __cart_sandbox = nil, nil
+    rawset(debug.getregistry(), "__PICO8_SANDBOX", nil)
+    for i=1,5 do __f08_menu_items[i] = {nil,nil} end
+    __f08_menu_items[8] = {nil,nil}
 end
 
 function __z8_run_cart(cart_code)

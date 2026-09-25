@@ -5,6 +5,7 @@
 using namespace std;
 
 #include "cart.h"
+#include "cartBundle.h"
 #include "Input.h"
 #include "Audio.h"
 #include "host.h"
@@ -28,6 +29,8 @@ class Vm {
     Input* _input;
 
     Cart* _loadedCart;
+    vector<CartBundleEntry> _cartBundle;
+    string _initialCartFilename;
     lua_State* _luaState;
 
     bool _cleanupMemory;
@@ -48,6 +51,8 @@ class Vm {
     //bool _hasUpdate;
     //bool _hasDraw;
 
+    bool _externalFrontend = false;
+    bool _exitRequested = false;
     bool _cartChangeQueued;
     bool _pauseMenu;
     bool _clearInputOnResume;
@@ -80,6 +85,12 @@ class Vm {
        Audio* audio = nullptr);
     ~Vm();
 
+    void SetExternalFrontend(bool enabled) { _externalFrontend = enabled; }
+    bool ExitRequested() const { return _exitRequested; }
+    void SetCartFilename(const string& filename) {
+        _initialCartFilename = filename;
+        if (_loadedCart) _loadedCart->FullCartPath = filename;
+    }
     bool LoadBiosCart();
     
     void LoadSettingsCart();
