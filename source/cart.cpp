@@ -396,6 +396,12 @@ bool Cart::loadCartFromString(std::string cartStr) {
 }
 
 Cart::Cart (const unsigned char* cartData, size_t size){
+    //zero out cart rom so no garbage is left over, exactly as the
+    //load-by-filename constructor below does. Without this, a cart whose text
+    //omits a section -- no __map__, no __sfx__ -- leaves that part of CartRom
+    //holding whatever was in the heap, and loadCart() copies it into PicoRam.
+    initCartRom();
+
     if (size < 5) {
         LoadError = "Invalid cart. Less than 5 bytes";
         return;
