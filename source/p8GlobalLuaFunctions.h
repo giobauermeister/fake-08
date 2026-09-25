@@ -42,8 +42,13 @@ if all==nil then
     end
 end
 
-function foreach(c, f)
-     for v in all(c) do f(v) end
+-- Embedded targets provide a native implementation of this too; it walks the
+-- container the same mutation-safe way all() does. Keep the Lua definition as
+-- the portable fallback used by upstream FAKE-08 builds.
+if foreach==nil then
+    function foreach(c, f)
+         for v in all(c) do f(v) end
+    end
 end
 
 -- Experimenting with count() on PICO-8 shows that it returns the number
