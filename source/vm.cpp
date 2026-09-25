@@ -512,6 +512,27 @@ bool Vm::LoadCart(const unsigned char* cartData, size_t size, bool loadBiosOnFai
     return success;
 }
 
+bool Vm::ReplaceLoadedCartLua(const string& expected, const string& replacement){
+    if (_loadedCart == nullptr || expected.empty()) {
+        return false;
+    }
+
+    size_t position = _loadedCart->LuaString.find(expected);
+    if (position == string::npos) {
+        return false;
+    }
+
+    // Compatibility patches must identify one exact source fragment.  Refuse
+    // an ambiguous match instead of silently changing more cart code than the
+    // caller intended.
+    if (_loadedCart->LuaString.find(expected, position + expected.size()) != string::npos) {
+        return false;
+    }
+
+    _loadedCart->LuaString.replace(position, expected.size(), replacement);
+    return true;
+}
+
 void Vm::togglePauseMenu(){
     _input->SetState(0, 0);
     if (_memory->drawState.suppressPause) {    

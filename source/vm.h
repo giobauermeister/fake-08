@@ -77,6 +77,8 @@ class Vm {
     bool LoadCart(string filename, bool loadBiosOnFail = true);
     bool LoadCart(const unsigned char* cartData, size_t size, bool loadBiosOnFail = true);
 
+    bool ReplaceLoadedCartLua(const string& expected, const string& replacement);
+
     // void UpdateAndDraw();
     bool Step();
 
