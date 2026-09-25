@@ -88,6 +88,10 @@ int pget(lua_State *L){
     return 1;
 }
 
+lua_Number pico8_fast_pget(lua_Number x, lua_Number y) {
+    return (lua_Number)_graphicsForLuaApi->pget((int)x, (int)y);
+}
+
 int color(lua_State *L){
     uint8_t prev = 0;
     int16_t c = 0;
@@ -295,6 +299,12 @@ int rectfill(lua_State *L){
     }
 
     return 0;
+}
+
+void pico8_fast_rectfill(lua_Number x1, lua_Number y1,
+                         lua_Number x2, lua_Number y2, lua_Number color) {
+    _graphicsForLuaApi->rectfill((int)x1, (int)y1, (int)x2, (int)y2,
+                                 (int16_t)(int)color);
 }
 
 int rrect(lua_State *L){
@@ -1299,6 +1309,14 @@ int rnd(lua_State *L) {
     }
 
     return 1;
+}
+
+lua_Number pico8_fast_rnd(lua_Number range) {
+    return _vmForLuaApi->api_rnd(range);
+}
+
+lua_Number pico8_fast_rnd_default() {
+    return _vmForLuaApi->api_rnd();
 }
 
 int srand(lua_State *L) {

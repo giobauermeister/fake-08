@@ -29,6 +29,16 @@ int oval(lua_State *L);
 int ovalfill(lua_State *L);
 int rect(lua_State *L);
 int rectfill(lua_State *L);
+
+// Internal VM fast-path helpers.  These implement the same numeric cases as
+// the Lua wrappers above without constructing a temporary Lua C-call frame.
+// lvm.c guards exact function identity, arity, types, result count and hooks;
+// every other call continues through the normal Lua API.
+lua_Number pico8_fast_pget(lua_Number x, lua_Number y);
+void pico8_fast_rectfill(lua_Number x1, lua_Number y1,
+                         lua_Number x2, lua_Number y2, lua_Number color);
+lua_Number pico8_fast_rnd(lua_Number range);
+lua_Number pico8_fast_rnd_default();
 int rrect(lua_State *L);
 int rrectfill(lua_State *L);
 int print(lua_State *L);
