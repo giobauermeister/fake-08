@@ -12,21 +12,61 @@
 #include <float.h>
 #include <cassert>
 
+namespace {
+
+#ifdef ESP_PLATFORM
+class AudioStateGuard {
+public:
+    explicit AudioStateGuard(SemaphoreHandle_t mutex) : _mutex(mutex) {
+        if (_mutex != nullptr) {
+            xSemaphoreTake(_mutex, portMAX_DELAY);
+        }
+    }
+
+    ~AudioStateGuard() {
+        if (_mutex != nullptr) {
+            xSemaphoreGive(_mutex);
+        }
+    }
+
+private:
+    SemaphoreHandle_t _mutex;
+};
+#else
+using AudioStateGuard = std::lock_guard<std::mutex>;
+#endif
+
+} // namespace
+
 //playback implementation based on zepto8's
 //https://github.com/samhocevar/zepto8/blob/master/src/pico8/sfx.cpp
 
 Audio::Audio(PicoRam* memory){
     _memory = memory;
     _paused = false;
+#ifdef ESP_PLATFORM
+    _stateMutex = xSemaphoreCreateMutex();
+#endif
     
     resetAudioState();
 }
 
+Audio::~Audio() {
+#ifdef ESP_PLATFORM
+    if (_stateMutex != nullptr) {
+        vSemaphoreDelete(_stateMutex);
+        _stateMutex = nullptr;
+    }
+#endif
+}
+
 void Audio::setPaused(bool paused) {
+    AudioStateGuard guard(_stateMutex);
     _paused = paused;
 }
 
 void Audio::resetAudioState() {
+    AudioStateGuard guard(_stateMutex);
     _audioState._musicChannel.count = -1;
     _audioState._musicChannel.pattern = -1;
     _audioState._musicChannel.mask = 0;
@@ -69,6 +109,7 @@ audioState_t* Audio::getAudioState() {
 }
 
 int Audio::api_sfx(int sfx, int channel, int offset, int length){
+    AudioStateGuard guard(_stateMutex);
     // SFX index: valid values are 0..63 for actual samples,
     // -1 to stop sound on a channel, -2 to stop looping on a channel
     // Audio channel: valid values are 0..3, -1 (autoselect), or -2 (stop sfx on any channel)
@@ -207,6 +248,7 @@ int Audio::api_sfx(int sfx, int channel, int offset, int length){
 }
 
 void Audio::api_music(int pattern, int16_t fade_len, int16_t mask){
+    AudioStateGuard guard(_stateMutex);
     // pattern: 0..63, -1 to stop music.
     // fade_len: fade length in milliseconds (default 0)
     // mask: reserved channels
@@ -356,24 +398,29 @@ static float key_to_freq(float key)
 }
 
 int16_t Audio::getCurrentSfxId(int channel){
+    AudioStateGuard guard(_stateMutex);
     return _audioState._sfxChannels[channel].main_sfx.sfx;
 }
 
 int Audio::getCurrentNoteNumber(int channel){
+    AudioStateGuard guard(_stateMutex);
     return _audioState._sfxChannels[channel].main_sfx.sfx < 0 
         ? -1
         : (int)_audioState._sfxChannels[channel].main_sfx.offset;
 }
 
 int16_t Audio::getCurrentMusic(){
+    AudioStateGuard guard(_stateMutex);
     return _audioState._musicChannel.pattern;
 }
 
 int16_t Audio::getMusicPatternCount(){
+    AudioStateGuard guard(_stateMutex);
     return _audioState._musicChannel.count;
 }
 
 int16_t Audio::getMusicTickCount(){
+    AudioStateGuard guard(_stateMutex);
     return (int16_t)_audioState._musicChannel.offset;
 }
 
@@ -576,6 +623,7 @@ float Audio::get_synth_sample(z8::synth_param& params)
 }
 
 void Audio::FillAudioBuffer(void *audioBuffer, size_t offset, size_t size){
+    AudioStateGuard guard(_stateMutex);
     if (audioBuffer == nullptr) {
         return;
     }
@@ -797,6 +845,7 @@ void Audio::FillAudioBuffer(void *audioBuffer, size_t offset, size_t size){
 
 
 void Audio::FillMonoAudioBuffer(void *audioBuffer, size_t offset, size_t size){
+    AudioStateGuard guard(_stateMutex);
     if (audioBuffer == nullptr) {
         return;
     }

@@ -3,6 +3,13 @@
 #include "PicoRam.h"
 #include "synth.h"
 
+#ifdef ESP_PLATFORM
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+#else
+#include <mutex>
+#endif
+
 #include <string>
 
 #define MAX_SFX = 64
@@ -91,6 +98,11 @@ class Audio {
     PicoRam* _memory;
     audioState_t _audioState;
     bool _paused;
+#ifdef ESP_PLATFORM
+    SemaphoreHandle_t _stateMutex;
+#else
+    std::mutex _stateMutex;
+#endif
 
     void set_music_pattern(int pattern);
     void update_sfx_state(sfx_state& cur_sfx, z8::synth_param& new_synth, 
@@ -101,6 +113,7 @@ class Audio {
     
     public:
     Audio(PicoRam* memory);
+    ~Audio();
 
     void resetAudioState();
     audioState_t* getAudioState();
