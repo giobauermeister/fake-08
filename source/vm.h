@@ -38,6 +38,13 @@ class Vm {
     int _targetFps;
 
     int _picoFrameCount;
+    struct SrandCacheEntry {
+        uint32_t key;
+        uint32_t state0;
+        uint32_t state1;
+        bool valid;
+    };
+    SrandCacheEntry _srandCache[64];
     //bool _hasUpdate;
     //bool _hasDraw;
 
@@ -181,4 +188,3 @@ class Vm {
     size_t serializeLuaState(char* dest);
     void deserializeLuaState(const char* src, size_t len);
 };
-

@@ -69,7 +69,7 @@ bool _initializeLuaState(lua_State* luaState) {
     lua_register(luaState, "__loadlabel", loadlabel);
     
     lua_register(luaState, "__getlualine", getlualine);
-    
+
     //register global functions first, they will get local aliases when
     //the rest of the api is registered
     //graphics
@@ -261,6 +261,7 @@ Vm::Vm(
     _pauseMenu = false;
     _clearInputOnResume = false;
     memset(_drawStateCopy, 0, sizeof(drawState_t));
+    memset(_srandCache, 0, sizeof(_srandCache));
     
     if (graphics == nullptr) {
         graphics = new Graphics(get_font_data(), _memory);
@@ -1199,17 +1200,47 @@ fix32 Vm::api_rnd(fix32 in_range)
     update_prng();
     uint32_t b = _memory->hwState.rngState[1];
     uint32_t range = in_range.bits();
-    return fix32::frombits(range > 0 ? b % range : 0);
+    if (range == 0) {
+        return fix32::frombits(0);
+    }
+
+    /* PICO-8's integer power-of-two ranges are powers of two in 16.16 form as
+     * well.  The mask is exactly equivalent to unsigned remainder, and avoids
+     * a variable divide in procedural effects that call rnd(1), rnd(2),
+     * rnd(8), etc. hundreds of times per frame. */
+    uint32_t result = (range & (range - 1)) == 0
+                    ? b & (range - 1)
+                    : b % range;
+    return fix32::frombits(result);
 }
 
 void Vm::api_srand(fix32 seed)
 {
     uint32_t* rngState = _memory->hwState.rngState;
-    rngState[0] = seed ? seed.bits() : 0xdeadbeef;
-    rngState[1] = rngState[0] ^ 0xbead29ba;
-    for (int i = 0; i < 32; ++i) {
-        update_prng();
+    uint32_t key = seed ? (uint32_t)seed.bits() : 0xdeadbeef;
+
+    /* srand's 32 mixing rounds are a pure function of the seed. Procedural
+     * effects commonly reseed with the same small constants every frame
+     * (Scrap Boy does so 42 times), so retain the exact resulting PICO-8 RNG
+     * state. A miss still mixes in locals and publishes once, rather than
+     * repeatedly loading/storing PicoRam. */
+    uint32_t slot = (key * 2654435761u) >> 26;
+    SrandCacheEntry &cached = _srandCache[slot];
+    if (cached.valid && cached.key == key) {
+        rngState[0] = cached.state0;
+        rngState[1] = cached.state1;
+        return;
     }
+
+    uint32_t state0 = key;
+    uint32_t state1 = state0 ^ 0xbead29ba;
+    for (int i = 0; i < 32; ++i) {
+        state1 = state0 + ((state1 >> 16) | (state1 << 16));
+        state0 += state1;
+    }
+    rngState[0] = state0;
+    rngState[1] = state1;
+    cached = {key, state0, state1, true};
 }
 
 void Vm::update_buttons() {
@@ -1542,4 +1573,3 @@ void Vm::deserializeLuaState(const char* src, size_t len) {
 	}
 	lua_pop(_luaState, 1);
 }
-

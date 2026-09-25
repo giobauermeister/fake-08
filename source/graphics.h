@@ -202,4 +202,3 @@ class Graphics {
 	std::tuple<uint8_t, uint8_t> cursor(int x, int y, uint8_t col);
 
 };
-

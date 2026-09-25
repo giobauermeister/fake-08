@@ -25,6 +25,11 @@ using namespace z8;
 #define PICO8_TLINE_FAST 1
 #endif
 
+#ifndef PICO8_PERF_LOG
+#define PICO8_PERF_LOG 0
+#endif
+
+#if PICO8_PERF_LOG
 static GraphicsTlineStats s_tlineStats = {};
 
 GraphicsTlineStats TakeGraphicsTlineStats() {
@@ -36,6 +41,10 @@ GraphicsTlineStats TakeGraphicsTlineStats() {
 void ResetGraphicsTlineStats() {
 	s_tlineStats = {};
 }
+#else
+GraphicsTlineStats TakeGraphicsTlineStats() { return {}; }
+void ResetGraphicsTlineStats() {}
+#endif
 
 //call initialize to make sure defaults are correct
 Graphics::Graphics(std::string fontdata, PicoRam* memory) {
@@ -924,11 +933,13 @@ void Graphics::tline(int x0, int y0, int x1, int y1, fix32 mx, fix32 my, fix32 m
 	int yend = clampYCoordToClip(y1);
 
 	auto &ds = _memory->drawState;
+#if PICO8_PERF_LOG
 	uint32_t pixelCount = (uint32_t)(xDifGreater
 		? std::abs(xend - x) + 1
 		: std::abs(yend - y) + 1);
 	s_tlineStats.calls++;
 	s_tlineStats.pixels += pixelCount;
+#endif
 
 	// Retrieve masks for wrap-around and subtract 0x0.0001
 	fix32 xmask = getTlineMask(ds.tlineMapWidth);
@@ -958,8 +969,10 @@ void Graphics::tline(int x0, int y0, int x1, int y1, fix32 mx, fix32 my, fix32 m
 #if PICO8_TLINE_FAST
 	if (y0 == y1 && mdx.bits() == 0x2000 && mdy.bits() == 0 &&
 		ds.clip_xb < ds.clip_xe && ds.clip_yb < ds.clip_ye) {
+#if PICO8_PERF_LOG
 		s_tlineStats.horizontalFastCalls++;
 		s_tlineStats.horizontalFastPixels += pixelCount;
+#endif
 
 		const int32_t xmaskBits = xmask.bits();
 		const int32_t ymaskBits = ymask.bits();
@@ -1857,7 +1870,7 @@ void Graphics::sspr(
         int dw,
         int dh,
         bool flip_x = false,
-        bool flip_y = false)
+		bool flip_y = false)
 {
 	copyStretchSpriteToScreen(GetP8SpriteSheetBuffer(), sx, sy, sw, sh, dx, dy, dw, dh, flip_x, flip_y, false);
 }
@@ -2122,4 +2135,3 @@ std::tuple<uint8_t, uint8_t> Graphics::cursor(int x, int y, uint8_t col) {
 
 	return this->cursor(x, y);
 }
-

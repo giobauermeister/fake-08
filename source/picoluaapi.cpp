@@ -61,6 +61,14 @@ int cls(lua_State *L){
     return 0;
 }
 
+void pico8_fast_cls() {
+    _graphicsForLuaApi->cls();
+}
+
+void pico8_fast_cls(lua_Number color) {
+    _graphicsForLuaApi->cls((int)color);
+}
+
 int pset(lua_State *L){
     int x = lua_tonumber(L,1);
     int y = lua_tonumber(L,2);
@@ -223,6 +231,20 @@ int circfill(lua_State *L){
     return 0;
 }
 
+void pico8_fast_circfill(lua_Number x, lua_Number y, lua_Number radius,
+                         lua_Number color) {
+    _graphicsForLuaApi->circfill((int)x, (int)y, (int)radius,
+                                 (uint8_t)(int)color);
+}
+
+void pico8_fast_circfill(lua_Number x, lua_Number y) {
+    _graphicsForLuaApi->circfill((int)x, (int)y);
+}
+
+void pico8_fast_circfill(lua_Number x, lua_Number y, lua_Number radius) {
+    _graphicsForLuaApi->circfill((int)x, (int)y, (int)radius);
+}
+
 int oval(lua_State *L){
 
     if (lua_gettop(L) >= 4) {
@@ -313,6 +335,11 @@ void pico8_fast_rectfill(lua_Number x1, lua_Number y1,
                          lua_Number x2, lua_Number y2, lua_Number color) {
     _graphicsForLuaApi->rectfill((int)x1, (int)y1, (int)x2, (int)y2,
                                  (int16_t)(int)color);
+}
+
+void pico8_fast_rectfill(lua_Number x1, lua_Number y1,
+                         lua_Number x2, lua_Number y2) {
+    _graphicsForLuaApi->rectfill((int)x1, (int)y1, (int)x2, (int)y2);
 }
 
 int rrect(lua_State *L){
@@ -452,6 +479,11 @@ int spr(lua_State *L) {
     return 0;
 }
 
+void pico8_fast_spr(lua_Number n, lua_Number x, lua_Number y,
+                    lua_Number w, lua_Number h, bool flip_x, bool flip_y) {
+    _graphicsForLuaApi->spr((int)n, (int)x, (int)y, w, h, flip_x, flip_y);
+}
+
 int sspr(lua_State *L) {
     if (lua_gettop(L) < 6) {
         return 0;
@@ -497,6 +529,14 @@ int sspr(lua_State *L) {
     return 0;
 }
 
+void pico8_fast_sspr(lua_Number sx, lua_Number sy, lua_Number sw, lua_Number sh,
+                     lua_Number dx, lua_Number dy, lua_Number dw, lua_Number dh,
+                     bool flip_x, bool flip_y) {
+    _graphicsForLuaApi->sspr((int)sx, (int)sy, (int)sw, (int)sh,
+                             (int)dx, (int)dy, (int)dw, (int)dh,
+                             flip_x, flip_y);
+}
+
 int fget(lua_State *L) {
     fix32 n = lua_tonumber(L,1);
 
@@ -511,6 +551,14 @@ int fget(lua_State *L) {
     }
 
     return 1;
+}
+
+lua_Number pico8_fast_fget(lua_Number sprite) {
+    return (lua_Number)_graphicsForLuaApi->fget((uint8_t)(int)sprite);
+}
+
+bool pico8_fast_fget(lua_Number sprite, lua_Number flag) {
+    return _graphicsForLuaApi->fget((uint8_t)(int)sprite, (uint8_t)(int)flag);
 }
 
 int fset(lua_State *L) {
@@ -597,6 +645,10 @@ int mget(lua_State *L) {
     lua_pushnumber(L, result);
 
     return 1;
+}
+
+lua_Number pico8_fast_mget(lua_Number x, lua_Number y) {
+    return (lua_Number)_graphicsForLuaApi->mget((int)x, (int)y);
 }
 
 int mset(lua_State *L) {
@@ -821,6 +873,22 @@ int btnp(lua_State *L){
     }
 
     return 1;
+}
+
+lua_Number pico8_fast_btn_default() {
+    return (lua_Number)_inputForLuaApi->btn();
+}
+
+lua_Number pico8_fast_btnp_default() {
+    return (lua_Number)_inputForLuaApi->btnp();
+}
+
+bool pico8_fast_btn(lua_Number button, lua_Number player) {
+    return _inputForLuaApi->btn((int)button, (int)player);
+}
+
+bool pico8_fast_btnp(lua_Number button, lua_Number player) {
+    return _inputForLuaApi->btnp((int)button, (int)player);
 }
 
 //System
@@ -1161,6 +1229,10 @@ int poke(lua_State *L) {
     return 0;
 }
 
+void pico8_fast_poke(lua_Number address, lua_Number value) {
+    _vmForLuaApi->vm_poke((uint16_t)(int)address, (uint8_t)(int)value);
+}
+
 int peek2(lua_State *L) {
     uint16_t addr = (uint16_t)lua_tointeger(L,1);
 
@@ -1332,6 +1404,10 @@ int srand(lua_State *L) {
     _vmForLuaApi->api_srand(seed);
 
     return 0;
+}
+
+void pico8_fast_srand(lua_Number seed) {
+    _vmForLuaApi->api_srand(seed);
 }
 
 int _update_buttons(lua_State *L) {

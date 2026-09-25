@@ -24,16 +24,21 @@ __z8_stopped = false
 __z8_persist_delay = 0
 __z8_cart_running = false
 
-function all(c)
-    if (c==nil or #c==0) return function() end
-    local i,prev = 1,nil
-    return function()
-        -- increment unless the current value changed
-        if (c[i]==prev) i+=1
-        -- skip until non-nil or end of table
-        while (i<=#c and c[i]==nil) i+=1
-        prev=c[i]
-        return prev
+-- Embedded targets provide a native implementation of this mutation-safe
+-- iterator. Keep the Lua definition as the portable fallback used by upstream
+-- FAKE-08 builds that do not register it.
+if all==nil then
+    function all(c)
+        if (c==nil or #c==0) return function() end
+        local i,prev = 1,nil
+        return function()
+            -- increment unless the current value changed
+            if (c[i]==prev) i+=1
+            -- skip until non-nil or end of table
+            while (i<=#c and c[i]==nil) i+=1
+            prev=c[i]
+            return prev
+        end
     end
 end
 
@@ -769,5 +774,3 @@ end
 __z8_loop = cocreate(__z8_shell)
 
 )#";
-
-

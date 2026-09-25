@@ -35,14 +35,36 @@ int rectfill(lua_State *L);
 // lvm.c guards exact function identity, arity, types, result count and hooks;
 // every other call continues through the normal Lua API.
 lua_Number pico8_fast_pget(lua_Number x, lua_Number y);
+void pico8_fast_poke(lua_Number address, lua_Number value);
+void pico8_fast_cls();
+void pico8_fast_cls(lua_Number color);
+void pico8_fast_circfill(lua_Number x, lua_Number y);
+void pico8_fast_circfill(lua_Number x, lua_Number y, lua_Number radius);
+void pico8_fast_circfill(lua_Number x, lua_Number y, lua_Number radius,
+                         lua_Number color);
 void pico8_fast_tline(lua_Number x0, lua_Number y0,
                       lua_Number x1, lua_Number y1,
                       lua_Number mx, lua_Number my,
                       lua_Number mdx, lua_Number mdy);
 void pico8_fast_rectfill(lua_Number x1, lua_Number y1,
                          lua_Number x2, lua_Number y2, lua_Number color);
+void pico8_fast_rectfill(lua_Number x1, lua_Number y1,
+                         lua_Number x2, lua_Number y2);
 lua_Number pico8_fast_rnd(lua_Number range);
 lua_Number pico8_fast_rnd_default();
+void pico8_fast_srand(lua_Number seed);
+lua_Number pico8_fast_mget(lua_Number x, lua_Number y);
+lua_Number pico8_fast_fget(lua_Number sprite);
+bool pico8_fast_fget(lua_Number sprite, lua_Number flag);
+bool pico8_fast_btn(lua_Number button, lua_Number player);
+bool pico8_fast_btnp(lua_Number button, lua_Number player);
+lua_Number pico8_fast_btn_default();
+lua_Number pico8_fast_btnp_default();
+void pico8_fast_spr(lua_Number n, lua_Number x, lua_Number y,
+                    lua_Number w, lua_Number h, bool flip_x, bool flip_y);
+void pico8_fast_sspr(lua_Number sx, lua_Number sy, lua_Number sw, lua_Number sh,
+                     lua_Number dx, lua_Number dy, lua_Number dw, lua_Number dh,
+                     bool flip_x, bool flip_y);
 int rrect(lua_State *L);
 int rrectfill(lua_State *L);
 int print(lua_State *L);
