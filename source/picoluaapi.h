@@ -35,6 +35,10 @@ int rectfill(lua_State *L);
 // lvm.c guards exact function identity, arity, types, result count and hooks;
 // every other call continues through the normal Lua API.
 lua_Number pico8_fast_pget(lua_Number x, lua_Number y);
+void pico8_fast_tline(lua_Number x0, lua_Number y0,
+                      lua_Number x1, lua_Number y1,
+                      lua_Number mx, lua_Number my,
+                      lua_Number mdx, lua_Number mdy);
 void pico8_fast_rectfill(lua_Number x1, lua_Number y1,
                          lua_Number x2, lua_Number y2, lua_Number color);
 lua_Number pico8_fast_rnd(lua_Number range);

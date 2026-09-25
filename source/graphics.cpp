@@ -21,6 +21,22 @@ using namespace std;
 #include <fix32.h>
 using namespace z8;
 
+#ifndef PICO8_TLINE_FAST
+#define PICO8_TLINE_FAST 1
+#endif
+
+static GraphicsTlineStats s_tlineStats = {};
+
+GraphicsTlineStats TakeGraphicsTlineStats() {
+	GraphicsTlineStats result = s_tlineStats;
+	s_tlineStats = {};
+	return result;
+}
+
+void ResetGraphicsTlineStats() {
+	s_tlineStats = {};
+}
+
 //call initialize to make sure defaults are correct
 Graphics::Graphics(std::string fontdata, PicoRam* memory) {
 	_memory = memory;
@@ -908,6 +924,11 @@ void Graphics::tline(int x0, int y0, int x1, int y1, fix32 mx, fix32 my, fix32 m
 	int yend = clampYCoordToClip(y1);
 
 	auto &ds = _memory->drawState;
+	uint32_t pixelCount = (uint32_t)(xDifGreater
+		? std::abs(xend - x) + 1
+		: std::abs(yend - y) + 1);
+	s_tlineStats.calls++;
+	s_tlineStats.pixels += pixelCount;
 
 	// Retrieve masks for wrap-around and subtract 0x0.0001
 	fix32 xmask = getTlineMask(ds.tlineMapWidth);
@@ -921,6 +942,89 @@ void Graphics::tline(int x0, int y0, int x1, int y1, fix32 mx, fix32 my, fix32 m
         my = (my & ~ymask) | ((my + mdy * fix32(step)) & ymask);
         delta -= step;
     }
+
+	/*
+	 * Particle lights in carts such as Scrap Boy are made from hundreds of
+	 * horizontal tline() calls with the default 1/8 source step.  The general
+	 * walker below recomputes a floating-point line coordinate, the map layout,
+	 * mget bounds and the sprite row for every destination pixel.  For this
+	 * exact form, y never changes and one source map cell covers eight pixels,
+	 * so retain the live cell and write the already-clipped row directly.
+	 *
+	 * This is only a different traversal of the same state: map wrapping,
+	 * camera/clip behavior, sprite-zero suppression, palt/pal and the hardware
+	 * colour masks remain identical.  Every other form uses the old path.
+	 */
+#if PICO8_TLINE_FAST
+	if (y0 == y1 && mdx.bits() == 0x2000 && mdy.bits() == 0 &&
+		ds.clip_xb < ds.clip_xe && ds.clip_yb < ds.clip_ye) {
+		s_tlineStats.horizontalFastCalls++;
+		s_tlineStats.horizontalFastPixels += pixelCount;
+
+		const int32_t xmaskBits = xmask.bits();
+		const int32_t ymaskBits = ymask.bits();
+		int32_t mxBits = mx.bits();
+		const int32_t myBits = my.bits();
+		const int mapY = ds.tlineMapYOffset + ((myBits & ymaskBits) >> 16);
+		const int texY =
+			(int32_t)((uint32_t)myBits << 3) >> 16 & 0x7;
+		const uint8_t *drawPalette = ds.drawPaletteMap;
+		const uint8_t colorBitmask = _memory->hwState.colorBitmask;
+		const uint8_t writeMask = colorBitmask & 0x0f;
+		const uint8_t readMask = colorBitmask >> 4;
+		uint8_t *screenRow = GetP8FrameBuffer() + (y << 6);
+
+		bool haveCell = false;
+		int cachedMapX = 0;
+		uint8_t sprite = 0;
+		const uint8_t *spriteRow = nullptr;
+
+		for (;;) {
+			const int wrappedMx = mxBits & xmaskBits;
+			const int mapX = ds.tlineMapXOffset + (wrappedMx >> 16);
+			if (!haveCell || mapX != cachedMapX) {
+				haveCell = true;
+				cachedMapX = mapX;
+				sprite = mget(mapX, mapY);
+				if (sprite) {
+					const int sprY = (sprite >> 4) * 8 + texY;
+					spriteRow = _memory->spriteSheetData +
+						(sprY << 6) + (sprite & 0x0f) * 4;
+				}
+			}
+
+			if (sprite) {
+				const int texX =
+					(int32_t)((uint32_t)mxBits << 3) >> 16 & 0x7;
+				const uint8_t packed = spriteRow[texX >> 1];
+				const uint8_t sourceColor = (texX & 1)
+					? packed >> 4 : packed & 0x0f;
+				const uint8_t paletteEntry = drawPalette[sourceColor];
+
+				if ((paletteEntry >> 4) == 0) {
+					uint8_t color = paletteEntry & 0x0f;
+					uint8_t &out = screenRow[x >> 1];
+					if (colorBitmask != 0xff) {
+						const uint8_t oldColor = (x & 1)
+							? out >> 4 : out & 0x0f;
+						color = (oldColor & ~writeMask) |
+							(color & writeMask & readMask);
+					}
+					out = (x & 1)
+						? (out & 0x0f) | (color << 4)
+						: (out & 0xf0) | color;
+				}
+			}
+
+			mxBits = (mxBits & ~xmaskBits) |
+				((mxBits + 0x2000) & xmaskBits);
+			if (x == xend)
+				break;
+			x += dx;
+		}
+		return;
+	}
+#endif
 
 	for (;;) {
         // Find sprite in map memory

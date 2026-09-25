@@ -7,6 +7,18 @@
 #include <fix32.h>
 using namespace z8;
 
+struct GraphicsTlineStats {
+	uint32_t calls;
+	uint32_t pixels;
+	uint32_t horizontalFastCalls;
+	uint32_t horizontalFastPixels;
+};
+
+/* Core 0 owns Graphics and the host consumes these immediately after each
+ * frame, so this deliberately needs neither atomics nor a platform timer. */
+GraphicsTlineStats TakeGraphicsTlineStats();
+void ResetGraphicsTlineStats();
+
 
 class Graphics {
 	//deprecated

@@ -173,6 +173,14 @@ int tline (lua_State *L){
     return 0;
 }
 
+void pico8_fast_tline(lua_Number x0, lua_Number y0,
+                      lua_Number x1, lua_Number y1,
+                      lua_Number mx, lua_Number my,
+                      lua_Number mdx, lua_Number mdy) {
+    _graphicsForLuaApi->tline((int)x0, (int)y0, (int)x1, (int)y1,
+                              mx, my, mdx, mdy);
+}
+
 int circ(lua_State *L){
     int ox = lua_tonumber(L,1);
     int oy = lua_tonumber(L,2);
