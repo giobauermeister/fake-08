@@ -1901,8 +1901,32 @@ void Graphics::map(int celx, int cely, int sx, int sy, int celw, int celh) {
 }
 
 void Graphics::map(int celx, int cely, int sx, int sy, int celw, int celh, uint8_t layer) {
-	for (int y = 0; y < celh; y++) {
-		for (int x = 0; x < celw; x++) {
+	const auto &drawState = _memory->drawState;
+	if (drawState.clip_xb >= drawState.clip_xe || drawState.clip_yb >= drawState.clip_ye) {
+		return;
+	}
+
+	// map() is commonly called for a whole level even though at most about
+	// 16x16 cells can intersect PICO-8's 128x128 viewport.  spr() clips each
+	// sprite eventually, but walking the off-screen cells still performs an
+	// mget(), fget() and function call for every one.  Restrict the walk to
+	// cells whose 8x8 destination rectangle intersects the active clip.
+	const auto floorDiv8 = [](int value) {
+		const int quotient = value / 8;
+		return quotient - (value % 8 < 0);
+	};
+	const auto ceilDiv8 = [](int value) {
+		const int quotient = value / 8;
+		return quotient + (value % 8 > 0);
+	};
+
+	const int firstX = max(0, floorDiv8(drawState.clip_xb + drawState.camera_x - sx));
+	const int firstY = max(0, floorDiv8(drawState.clip_yb + drawState.camera_y - sy));
+	const int endX = min(celw, ceilDiv8(drawState.clip_xe + drawState.camera_x - sx));
+	const int endY = min(celh, ceilDiv8(drawState.clip_ye + drawState.camera_y - sy));
+
+	for (int y = firstY; y < endY; y++) {
+		for (int x = firstX; x < endX; x++) {
 			uint8_t cell = mget(celx + x, cely + y);
 			if (cell && ((layer == 0) || (fget(cell) & layer))) {
 				spr(cell, sx + x * 8, sy + y * 8);
