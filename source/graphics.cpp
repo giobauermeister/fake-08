@@ -721,8 +721,19 @@ void Graphics::_private_h_line(int x1, int x2, int y){
 		return;
 	}
 
+	// clip_xe is exclusive -- x == clip_xe is already off screen -- so a span
+	// that starts exactly at the right edge has to be discarded here. Testing
+	// it with `>` let such a span through, and the clamp below then collapsed
+	// it onto the last visible column instead of dropping it.
+	//
+	// Celeste ends every frame with four rectfills that clear the area just
+	// outside the screen, so that a screenshake does not smear stale pixels
+	// into view. The right-hand one is rectfill(128,-5,133,133,0): entirely off
+	// screen, and under the old test it painted column 127 black on every
+	// single frame. The left-hand one, rectfill(-5,-5,-1,133,0), was correctly
+	// discarded, which is why only the right edge lost a column.
 	if ((x1 < drawState.clip_xb && x2 < drawState.clip_xb) ||
-		(x1 > drawState.clip_xe && x2 > drawState.clip_xe)) {
+		(x1 >= drawState.clip_xe && x2 >= drawState.clip_xe)) {
 			return;
 	}
 
