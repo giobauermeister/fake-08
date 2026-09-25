@@ -548,7 +548,17 @@ function __z8_run_cart(cart_code)
                 end
                 if _draw then
                     _draw()
-                    flip()
+                    -- Input was sampled immediately before this update.  The
+                    -- host presents the frame after the coroutine yields, so
+                    -- calling flip() here only samples a second time.  A press
+                    -- arriving during a slow _draw() would then be turned into
+                    -- a btnp edge and cleared by the next pre-update sample,
+                    -- before the cart ever had a chance to observe it.
+                    --
+                    -- Keep flip()'s input refresh for carts that call it
+                    -- explicitly from their own blocking loops; the automatic
+                    -- update/draw loop needs only the yield.
+                    yield()
                 else
                     yield()
                 end
