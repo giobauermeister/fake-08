@@ -30,7 +30,10 @@ class Vm {
     Cart* _loadedCart;
     lua_State* _luaState;
 
-    bool _cleanupDeps;
+    bool _cleanupMemory;
+    bool _cleanupGraphics;
+    bool _cleanupInput;
+    bool _cleanupAudio;
 
     int _targetFps;
 

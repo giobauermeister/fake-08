@@ -238,7 +238,10 @@ Vm::Vm(
     Audio* audio) :
         _loadedCart(nullptr),
         _luaState(nullptr),
-        _cleanupDeps(false),
+        _cleanupMemory(false),
+        _cleanupGraphics(false),
+        _cleanupInput(false),
+        _cleanupAudio(false),
         //_targetFps(30),
         _picoFrameCount(0),
         _cartChangeQueued(false),
@@ -251,7 +254,7 @@ Vm::Vm(
 
     if (memory == nullptr) {
         memory = new PicoRam();
-        _cleanupDeps = true;
+        _cleanupMemory = true;
     }
     _memory = memory;
 
@@ -261,19 +264,19 @@ Vm::Vm(
     
     if (graphics == nullptr) {
         graphics = new Graphics(get_font_data(), _memory);
-        _cleanupDeps = true;
+        _cleanupGraphics = true;
     }
     _graphics = graphics;
 
     if (input == nullptr){
         input = new Input(memory);
-        _cleanupDeps = true;
+        _cleanupInput = true;
     }
     _input = input;
 
     if (audio == nullptr) {
         audio = new Audio(_memory);
-        _cleanupDeps = true;
+        _cleanupAudio = true;
     }
     _audio = audio;
 
@@ -319,19 +322,17 @@ Vm::~Vm(){
     }
 
 
-    if (_cleanupDeps){
-        if (_input != nullptr) {
-            delete _input;
-        }
-        if (_graphics != nullptr) {
-            delete _graphics;
-        }
-        if (_audio != nullptr) {
-            delete _audio;
-        }
-        if (_memory != nullptr) {
-            delete _memory;
-        }
+    if (_cleanupInput && _input != nullptr) {
+        delete _input;
+    }
+    if (_cleanupGraphics && _graphics != nullptr) {
+        delete _graphics;
+    }
+    if (_cleanupAudio && _audio != nullptr) {
+        delete _audio;
+    }
+    if (_cleanupMemory && _memory != nullptr) {
+        delete _memory;
     }
 }
 
