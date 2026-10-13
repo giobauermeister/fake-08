@@ -1,9 +1,11 @@
-# FAKE-08 with the TV patches
+# FAKE-08 with shared port patches
 
-This fork of [FAKE-08](https://github.com/jtothebell/fake-08) carries the
-compatibility and speed patches used by
-[FAKE-08 for Samsung TVs](https://github.com/giobauermeister/fake08_tv), which
-uses the `tv-patches` branch as a git submodule.
+These compatibility and speed patches originated in an ESP32-P4 retro
+console application and were later shared with
+[FAKE-08 for Samsung Tizen TVs](https://github.com/giobauermeister/fake08_tv).
+Both ports use the `port-patches` branch of this
+[FAKE-08](https://github.com/jtothebell/fake-08) fork as a git submodule,
+with the matching `port-patches` branch of the z8lua fork inside it.
 
 FAKE-08 is MIT licensed, see [LICENSE.MD](LICENSE.MD). The patches are by
 Giovanni Bauermeister, except that 0006 carries two upstream z8lua commits, and
@@ -13,21 +15,21 @@ are under the same licence.
 
 | Repository | Branch | Starts from |
 |---|---|---|
-| [giobauermeister/fake-08](https://github.com/giobauermeister/fake-08) | `tv-patches` | [jtothebell/fake-08](https://github.com/jtothebell/fake-08) `814991a2571ad3970e386cef48f3b148aa1c27b9` (`master`, "Merge pull request #267 from ysamlan/fix-vibrato-modulation") |
-| [giobauermeister/z8lua](https://github.com/giobauermeister/z8lua), the `libs/z8lua` submodule | `tv-patches` | [jtothebell/z8lua](https://github.com/jtothebell/z8lua) `e6928578d46b61fd5ea30cfcf547e855a30a0553` (`z8lua-3ds-switch`, "Add another sandbox fallback to gettable"), the commit upstream FAKE-08 pins |
+| [giobauermeister/fake-08](https://github.com/giobauermeister/fake-08) | `port-patches` | [jtothebell/fake-08](https://github.com/jtothebell/fake-08) `814991a2571ad3970e386cef48f3b148aa1c27b9` (`master`, "Merge pull request #267 from ysamlan/fix-vibrato-modulation") |
+| [giobauermeister/z8lua](https://github.com/giobauermeister/z8lua), the `libs/z8lua` submodule | `port-patches` | [jtothebell/z8lua](https://github.com/jtothebell/z8lua) `e6928578d46b61fd5ea30cfcf547e855a30a0553` (`z8lua-3ds-switch`, "Add another sandbox fallback to gettable"), the commit upstream FAKE-08 pins |
 
 Each branch has one commit per patch, in order, with the patch's one-line
 summary as its subject. A patch that changes both FAKE-08 and z8lua has a
-commit with the same subject in each repository. The last commit on the fake-08
-branch points `libs/z8lua` (and `.gitmodules`) at the z8lua fork's `tv-patches`
-head. Clone with submodules:
+commit with the same subject in each repository. FAKE-08 records the matching
+z8lua revision in its `libs/z8lua` submodule and tracks the fork's
+`port-patches` branch through `.gitmodules`. Clone with submodules:
 
 ```sh
-git clone --recursive -b tv-patches https://github.com/giobauermeister/fake-08.git
+git clone --recursive -b port-patches https://github.com/giobauermeister/fake-08.git
 ```
 
-The TV app compiles only `source/` (without `main.cpp` and
-`hostCommonFunctions.cpp`), `libs/z8lua` and `libs/lodepng`, and turns on the
+Both ports compile only `source/` (without `main.cpp` and
+`hostCommonFunctions.cpp`), `libs/z8lua` and `libs/lodepng`, and turn on the
 fast paths with `-DPICO8_TLINE_FAST=1 -DPICO8_VM_HOT_CALLS=1
 -DPICO8_VM_MEMORY_SUPEROPS=1 -DPICO8_VM_FIELD_CACHE=1 -fwrapv`. The desktop,
 console and libretro platforms in `platform/` are untouched and were not
@@ -724,19 +726,19 @@ heads so the old series stays reachable:
 # z8lua (a clone of giobauermeister/z8lua, or libs/z8lua)
 git remote add upstream https://github.com/jtothebell/z8lua.git   # once
 git fetch upstream
-git tag tv-patches-e6928578 tv-patches
-git rebase --onto upstream/z8lua-3ds-switch e6928578 tv-patches
-git push --force-with-lease origin tv-patches
+git tag port-patches-e6928578 port-patches
+git rebase --onto upstream/z8lua-3ds-switch e6928578 port-patches
+git push --force-with-lease origin port-patches
 
 # fake-08
 git remote add upstream https://github.com/jtothebell/fake-08.git # once
 git fetch upstream
-git tag tv-patches-814991a tv-patches
-git rebase --onto upstream/master 814991a tv-patches
+git tag port-patches-814991a port-patches
+git rebase --onto upstream/master 814991a port-patches
 ```
 
-The last fake-08 commit only moves the `libs/z8lua` pointer. If it conflicts,
-check out the rebased z8lua `tv-patches` head in `libs/z8lua`, `git add
+The fake-08 branch also contains the `libs/z8lua` pointer update. If it conflicts,
+check out the rebased z8lua `port-patches` head in `libs/z8lua`, `git add
 libs/z8lua` and continue. After `git submodule update`, build the TV app
 against the result (`make FAKE08_DIR=<this clone>` there) before pushing.
 
