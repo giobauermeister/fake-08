@@ -699,6 +699,22 @@ that host-side change and flash/SD packaging changes live outside this patch.
 
 </details>
 
+### 0021 Bound pause-menu navigation when trailing entries are hidden
+
+*fake-08*
+
+Cart release clears the final menu entry but keeps its slot table. Pressing
+Down on "exit to menu" used to skip that empty entry and index beyond the
+menu, causing a Lua error. External frontends then exited the game as part
+of error recovery, making Down appear to activate the exit option.
+
+Search the same slots (0 through 8) that the menu draws, skipping missing
+tables and empty labels in either direction. If no later visible entry exists,
+leave the selection in place. Confirmation callbacks retain their existing
+controls. `test/pausemenutests.cpp` exercises the actual BIOS menu functions
+with hidden trailing slots, repeated boundary presses, unused/removed custom
+entries, breadcrumbs and explicit confirmation.
+
 ## Rebasing onto a newer upstream
 
 Rebase z8lua first, since the fake-08 branch points at it. Tag the current

@@ -234,16 +234,26 @@ __f08_menu_items = {
 __f08_menu_selected = 0
 
 function __f08_menu_update()
-    if btnp(3) and __f08_menu_selected < #__f08_menu_items then
-        repeat
-            __f08_menu_selected = __f08_menu_selected + 1
-        until __f08_menu_items[__f08_menu_selected][1] ~= nil
+    -- Search only the slots drawn by __f08_menu_draw. Cart release hides the
+    -- last slot, so skipping empty entries must not run past the menu's end.
+    if btnp(3) then
+        for i=__f08_menu_selected+1, 8 do
+            local item = __f08_menu_items[i]
+            if item and item[1] ~= nil then
+                __f08_menu_selected = i
+                break
+            end
+        end
     end
 
-    if btnp(2) and __f08_menu_selected > 0 then
-        repeat
-            __f08_menu_selected = __f08_menu_selected - 1
-        until __f08_menu_items[__f08_menu_selected][1] ~= nil
+    if btnp(2) then
+        for i=__f08_menu_selected-1, 0, -1 do
+            local item = __f08_menu_items[i]
+            if item and item[1] ~= nil then
+                __f08_menu_selected = i
+                break
+            end
+        end
     end
 
     if btnp(0) or btnp(1) or btnp(4) or btnp(5) then
